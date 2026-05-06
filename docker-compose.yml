@@ -1,0 +1,92 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  auth-service:
+    build: ./auth-services
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+
+  user-service:
+    build: ./user-services
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - kafka
+
+  wallet-service:
+    build: ./wallet-services
+    container_name: wallet-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+
+  payment-service:
+    build: ./payment-services
+    container_name: payment-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - kafka
+
+  ledger-service:
+    build: ./ledger-services
+    container_name: ledger-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - kafka
+
+  fraud-service:
+    build: ./fraud-service
+    container_name: fraud-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - kafka
+
+  notification-service:
+    build: ./notification-services
+    container_name: notification-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - kafka
+
+  api-gateway:
+    build: ./api-gateway--services
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - user-service
+      - wallet-service
+      - payment-service
+      - ledger-service
+      - fraud-service
+      - notification-service
