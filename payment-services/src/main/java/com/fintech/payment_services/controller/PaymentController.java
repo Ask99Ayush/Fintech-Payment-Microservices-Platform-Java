@@ -20,8 +20,9 @@ public class PaymentController {
     @PostMapping("/send")
     public ResponseEntity<PaymentResponse> send(
             Authentication auth,
+            @RequestHeader("Authorization") String token,
             @Valid @RequestBody PaymentRequest request) {
-        return ResponseEntity.ok(paymentService.processPayment(auth.getName(), request));
+        return ResponseEntity.ok(paymentService.processPayment(auth.getName(), request, token));
     }
 
     @GetMapping("/history")

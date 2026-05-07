@@ -30,6 +30,7 @@ public class Payment {
     @Column(nullable = false)
     private String status; // PENDING, SUCCESS, FAILED
 
+    @Column(length = 1000)
     private String failureReason;
 
     @Column(nullable = false, updatable = false)

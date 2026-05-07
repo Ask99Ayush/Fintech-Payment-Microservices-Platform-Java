@@ -45,4 +45,17 @@ public class WalletController {
                                                  @RequestParam BigDecimal amount) {
         return ResponseEntity.ok(walletService.credit(email, amount));
     }
+
+    // Internal endpoint — called by Payment Service
+    @PostMapping("/debit/internal")
+    public ResponseEntity<WalletResponse> debitInternal(
+            @RequestHeader("Authorization") String token,
+            @RequestParam String email,
+            @RequestParam BigDecimal amount,
+            @RequestParam String idempotencyKey) {
+        DebitRequest request = new DebitRequest();
+        request.setAmount(amount);
+        request.setIdempotencyKey(idempotencyKey);
+        return ResponseEntity.ok(walletService.debit(email, request));
+    }
 }

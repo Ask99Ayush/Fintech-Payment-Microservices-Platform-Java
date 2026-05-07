@@ -25,7 +25,7 @@ public class PaymentService {
     private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
 
     @Transactional
-    public PaymentResponse processPayment(String senderEmail, PaymentRequest request) {
+    public PaymentResponse processPayment(String senderEmail, PaymentRequest request,String token) {
 
         // 1 — Idempotency check
         var existing = paymentRepository.findByIdempotencyKey(request.getIdempotencyKey());
@@ -47,7 +47,7 @@ public class PaymentService {
                     "amount", request.getAmount(),
                     "referenceId", request.getIdempotencyKey()
             );
-            Map<String, String> fraudResult = fraudClient.check(fraudReq);
+            Map<String, String> fraudResult = fraudClient.check(token,fraudReq);
             if ("REJECTED".equals(fraudResult.get("result"))) {
                 payment.setStatus("FAILED");
                 payment.setFailureReason(fraudResult.get("reason"));
@@ -57,10 +57,10 @@ public class PaymentService {
             }
 
             // 4 — Debit sender
-            walletClient.debit(senderEmail, request.getAmount(), request.getIdempotencyKey());
+            walletClient.debit(token,senderEmail, request.getAmount(), request.getIdempotencyKey());
 
             // 5 — Record debit in ledger
-            ledgerClient.record(Map.of(
+            ledgerClient.record(token,Map.of(
                     "email", senderEmail,
                     "type", "DEBIT",
                     "amount", request.getAmount(),
@@ -69,10 +69,10 @@ public class PaymentService {
             ));
 
             // 6 — Credit receiver
-            walletClient.credit(request.getReceiverEmail(), request.getAmount());
+            walletClient.credit(token,request.getReceiverEmail(), request.getAmount());
 
             // 7 — Record credit in ledger
-            ledgerClient.record(Map.of(
+            ledgerClient.record(token,Map.of(
                     "email", request.getReceiverEmail(),
                     "type", "CREDIT",
                     "amount", request.getAmount(),
@@ -91,7 +91,7 @@ public class PaymentService {
 
             // Compensating transaction — refund if debit happened
             try {
-                walletClient.credit(senderEmail, request.getAmount());
+                walletClient.credit(token,senderEmail, request.getAmount());
                 log.info("Compensating credit issued to {}", senderEmail);
             } catch (Exception ex) {
                 log.error("Compensation failed: {}", ex.getMessage());
