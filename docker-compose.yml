@@ -90,3 +90,13 @@ services:
       - ledger-service
       - fraud-service
       - notification-service
+
+  frontend:
+    build:
+      context: ./fintech-frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway

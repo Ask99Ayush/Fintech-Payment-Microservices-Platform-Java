@@ -91,7 +91,17 @@ public class PaymentService {
 
             // Compensating transaction — refund if debit happened
             try {
-                walletClient.credit(token,senderEmail, request.getAmount());
+                walletClient.credit(token, senderEmail, request.getAmount());
+
+                // ← ADD THIS — record the refund in ledger
+                ledgerClient.record(token, Map.of(
+                        "email", senderEmail,
+                        "type", "CREDIT",
+                        "amount", request.getAmount(),
+                        "referenceId", request.getIdempotencyKey() + "-refund",
+                        "description", "Refund for failed payment"
+                ));
+
                 log.info("Compensating credit issued to {}", senderEmail);
             } catch (Exception ex) {
                 log.error("Compensation failed: {}", ex.getMessage());
