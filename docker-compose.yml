@@ -5,14 +5,21 @@ services:
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -20,65 +27,101 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   auth-service:
-    build: ./auth-services
+    build:
+      context: ./auth-services
+      dockerfile: Dockerfile
     container_name: auth-service
     ports:
       - "8081:8081"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   user-service:
-    build: ./user-services
+    build:
+      context: ./user-services
+      dockerfile: Dockerfile
     container_name: user-service
     ports:
       - "8082:8082"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   wallet-service:
-    build: ./wallet-services
+    build:
+      context: ./wallet-services
+      dockerfile: Dockerfile
     container_name: wallet-service
     ports:
       - "8083:8083"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   payment-service:
-    build: ./payment-services
+    build:
+      context: ./payment-services
+      dockerfile: Dockerfile
     container_name: payment-service
     ports:
       - "8084:8084"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   ledger-service:
-    build: ./ledger-services
+    build:
+      context: ./ledger-services
+      dockerfile: Dockerfile
     container_name: ledger-service
     ports:
       - "8085:8085"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   fraud-service:
-    build: ./fraud-service
+    build:
+      context: ./fraud-service
+      dockerfile: Dockerfile
     container_name: fraud-service
     ports:
       - "8086:8086"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   notification-service:
-    build: ./notification-services
+    build:
+      context: ./notification-services
+      dockerfile: Dockerfile
     container_name: notification-service
     ports:
       - "8087:8087"
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
   api-gateway:
-    build: ./api-gateway--services
+    build:
+      context: ./api-gateway--services
+      dockerfile: Dockerfile
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -90,6 +133,7 @@ services:
       - ledger-service
       - fraud-service
       - notification-service
+    restart: on-failure
 
   frontend:
     build:
@@ -97,6 +141,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - api-gateway
+    restart: on-failure
