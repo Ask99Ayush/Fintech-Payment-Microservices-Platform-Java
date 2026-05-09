@@ -1,45 +1,35 @@
 #!/bin/bash
 
-# Stop script on error
 set -e
 
+echo "Starting deployment"
 
-echo "Updating system packages"
+echo "Updating packages"
 sudo apt update -y
-sudo apt upgrade -y
 
-
-echo "Installing Docker"
+echo "Installing dependencies"
 sudo apt install -y docker.io docker-compose-v2 git curl
 
-
-echo "Starting Docker service"
+echo "Starting Docker"
 sudo systemctl enable docker
 sudo systemctl start docker
 
+echo "Adding docker permissions"
+sudo usermod -aG docker $USER || true
 
-echo "Adding current user to docker group"
-sudo usermod -aG docker $USER
-
-
-echo "Moving to project directory"
-cd ~/Fintech-Payment-Microservices-Platform-Java
-
+echo "Adding execute permission"
+chmod +x postgres/init/init-multiple-dbs.sh || true
 
 echo "Stopping old containers"
 sudo docker compose down || true
 
+echo "Cleaning old images"
+sudo docker image prune -f
 
-echo "Removing unused Docker data"
-sudo docker system prune -f
-
-
-echo "Building and starting services"
+echo "Building containers"
 sudo docker compose up -d --build
-
 
 echo "Running containers"
 sudo docker ps
 
-
-echo "Deployment completed successfully"
+echo "Deployment completed"
