@@ -2,7 +2,8 @@ package com.fintech.payment_services.service;
 
 import com.fintech.payment_services.dto.*;
 import com.fintech.payment_services.entity.Payment;
-import com.fintech.payment_services.feign.*;
+import com.fintech.payment_services.feign.FraudClient;
+import com.fintech.payment_services.feign.WalletClient;
 import com.fintech.payment_services.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,8 +26,6 @@ public class PaymentService {
     private final WalletClient walletClient;
 
     private final FraudClient fraudClient;
-
-    private final LedgerClient ledgerClient;
 
     private final KafkaTemplate<String, PaymentEvent> kafkaTemplate;
 
@@ -75,7 +75,7 @@ public class PaymentService {
 
                 paymentRepository.save(payment);
 
-                publishEvent(payment);
+                publishFailureEvent(payment);
 
                 return mapToResponse(payment);
             }
@@ -87,33 +87,17 @@ public class PaymentService {
                     request.getIdempotencyKey()
             );
 
-            ledgerClient.record(token, Map.of(
-                    "email", senderEmail,
-                    "type", "DEBIT",
-                    "amount", request.getAmount(),
-                    "referenceId", request.getIdempotencyKey(),
-                    "description", "Payment to " + request.getReceiverEmail()
-            ));
-
             walletClient.credit(
                     token,
                     request.getReceiverEmail(),
                     request.getAmount()
             );
 
-            ledgerClient.record(token, Map.of(
-                    "email", request.getReceiverEmail(),
-                    "type", "CREDIT",
-                    "amount", request.getAmount(),
-                    "referenceId", request.getIdempotencyKey() + "-credit",
-                    "description", "Payment from " + senderEmail
-            ));
-
             payment.setStatus("SUCCESS");
 
             paymentRepository.save(payment);
 
-            publishEvent(payment);
+            publishSuccessEvents(payment);
 
             return mapToResponse(payment);
 
@@ -129,13 +113,7 @@ public class PaymentService {
                         request.getAmount()
                 );
 
-                ledgerClient.record(token, Map.of(
-                        "email", senderEmail,
-                        "type", "CREDIT",
-                        "amount", request.getAmount(),
-                        "referenceId", request.getIdempotencyKey() + "-refund",
-                        "description", "Refund for failed payment"
-                ));
+                publishRefundEvent(payment);
 
                 log.info(
                         "Compensating credit issued to {}",
@@ -156,7 +134,7 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
-            publishEvent(payment);
+            publishFailureEvent(payment);
 
             return mapToResponse(payment);
         }
@@ -174,17 +152,70 @@ public class PaymentService {
                 .collect(Collectors.toList());
     }
 
-    private void publishEvent(Payment p) {
+    private void publishSuccessEvents(Payment p) {
 
         kafkaTemplate.send(
                 "payment-events",
-                new PaymentEvent(
-                        p.getSenderEmail(),
-                        p.getReceiverEmail(),
-                        p.getAmount(),
-                        p.getStatus(),
-                        p.getIdempotencyKey()
-                )
+                PaymentEvent.builder()
+                        .senderEmail(p.getSenderEmail())
+                        .receiverEmail(p.getReceiverEmail())
+                        .amount(p.getAmount())
+                        .status("SUCCESS")
+                        .transactionType("PAYMENT")
+                        .description(
+                                "Payment from "
+                                        + p.getSenderEmail()
+                                        + " to "
+                                        + p.getReceiverEmail()
+                        )
+                        .refund(false)
+                        .idempotencyKey(p.getIdempotencyKey())
+                        .createdAt(LocalDateTime.now())
+                        .build()
+        );
+    }
+
+    private void publishFailureEvent(Payment p) {
+
+        kafkaTemplate.send(
+                "payment-events",
+                PaymentEvent.builder()
+                        .senderEmail(p.getSenderEmail())
+                        .receiverEmail(p.getReceiverEmail())
+                        .amount(p.getAmount())
+                        .status("FAILED")
+                        .transactionType("FAILED_PAYMENT")
+                        .description(
+                                "Failed payment from "
+                                        + p.getSenderEmail()
+                        )
+                        .refund(false)
+                        .idempotencyKey(p.getIdempotencyKey())
+                        .createdAt(LocalDateTime.now())
+                        .build()
+        );
+    }
+
+    private void publishRefundEvent(Payment p) {
+
+        kafkaTemplate.send(
+                "payment-events",
+                PaymentEvent.builder()
+                        .senderEmail(p.getSenderEmail())
+                        .receiverEmail(p.getReceiverEmail())
+                        .amount(p.getAmount())
+                        .status("REFUND")
+                        .transactionType("REFUND")
+                        .description(
+                                "Refund issued to "
+                                        + p.getSenderEmail()
+                        )
+                        .refund(true)
+                        .idempotencyKey(
+                                p.getIdempotencyKey() + "-refund"
+                        )
+                        .createdAt(LocalDateTime.now())
+                        .build()
         );
     }
 

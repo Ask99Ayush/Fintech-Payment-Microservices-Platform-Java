@@ -1,4 +1,4 @@
-package com.fintech.payment_services.dto;
+package com.fintech.ledger_services.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
