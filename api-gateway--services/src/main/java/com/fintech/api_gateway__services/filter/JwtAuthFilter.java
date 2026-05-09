@@ -29,11 +29,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain chain
     ) throws ServletException, IOException {
 
-        // Allow OPTIONS
+        // Allow OPTIONS requests
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
 
             chain.doFilter(request, response);
-
             return;
         }
 
@@ -41,22 +40,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         log.info("Incoming request path: {}", path);
 
-        // Public auth endpoints
+        // Public endpoints
         if (path.contains("/api/auth")) {
 
             chain.doFilter(request, response);
-
             return;
         }
 
-        // Authorization header
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
 
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-            response.getWriter().write("{\"error\": \"Missing token\"}");
+            response.getWriter()
+                    .write("{\"error\": \"Missing token\"}");
 
             return;
         }
@@ -68,24 +66,26 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-            response.getWriter().write("{\"error\": \"Invalid token\"}");
+            response.getWriter()
+                    .write("{\"error\": \"Invalid token\"}");
 
             return;
         }
 
-        // Extract authenticated user
+        // Extract authenticated email
         String email = jwtUtil.extractEmail(token);
 
         log.info("Authenticated user: {}", email);
 
-        // Inject trusted internal header
+        // Inject authenticated user header
         HttpServletRequestWrapper wrappedRequest =
                 new HttpServletRequestWrapper(request) {
 
                     @Override
                     public String getHeader(String name) {
 
-                        if ("X-Authenticated-User".equalsIgnoreCase(name)) {
+                        if ("X-Authenticated-User"
+                                .equalsIgnoreCase(name)) {
 
                             return email;
                         }
@@ -94,9 +94,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     }
 
                     @Override
-                    public Enumeration<String> getHeaders(String name) {
+                    public Enumeration<String> getHeaders(
+                            String name
+                    ) {
 
-                        if ("X-Authenticated-User".equalsIgnoreCase(name)) {
+                        if ("X-Authenticated-User"
+                                .equalsIgnoreCase(name)) {
 
                             return Collections.enumeration(
                                     Collections.singletonList(email)
@@ -104,6 +107,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         }
 
                         return super.getHeaders(name);
+                    }
+
+                    @Override
+                    public Enumeration<String> getHeaderNames() {
+
+                        var names =
+                                Collections.list(
+                                        super.getHeaderNames()
+                                );
+
+                        names.add("X-Authenticated-User");
+
+                        return Collections.enumeration(names);
                     }
                 };
 
