@@ -2,7 +2,7 @@
 # Stage 1 — Build Application
 # ================================
 
-FROM maven:3.9-eclipse-temurin-17-alpine AS build
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -24,7 +24,7 @@ RUN mvn package -DskipTests
 # Stage 2 — Runtime Image
 # ================================
 
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 # Set metadata
 LABEL maintainer="Ayush Rao Chaudhary"
