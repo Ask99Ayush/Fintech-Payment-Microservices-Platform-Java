@@ -170,7 +170,7 @@ public class PaymentService {
                         )
                         .refund(false)
                         .idempotencyKey(p.getIdempotencyKey())
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now().toString())
                         .build()
         );
     }
@@ -191,7 +191,7 @@ public class PaymentService {
                         )
                         .refund(false)
                         .idempotencyKey(p.getIdempotencyKey())
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now().toString())
                         .build()
         );
     }
@@ -214,7 +214,7 @@ public class PaymentService {
                         .idempotencyKey(
                                 p.getIdempotencyKey() + "-refund"
                         )
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now().toString())
                         .build()
         );
     }
